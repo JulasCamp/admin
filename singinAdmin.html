@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login & Registration Form | helpme_coder</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <input type="checkbox" id="check">
+    <div class="Sign-in form">
+      <header>Sign in</header>
+      <form action="#">
+        <input class="email" id="email" type="text" placeholder="Enter email">
+        <input class="password" id="password" type="password" placeholder="Enter password">
+        
+        <input type="button" class="button" value="Login" onclick="validateLogin()">
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // بيانات البريد الإلكتروني وكلمة المرور الصحيحة
+    const correctEmail = "julas0123@gmail.com";
+    const correctPassword = "julas_123";
+
+    // دالة للتحقق من صحة الإدخالات
+    function validateLogin() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      if (email === correctEmail && password === correctPassword) {
+        alert("Login successful!");
+         // إعادة التوجيه إلى صفحة أخرى عند النجاح
+         window.location.href = "Admin.html"; // استبدل "welcome.html" بالصفحة التي تريد الانتقال إليها
+     
+      } else {
+        alert("Incorrect email or password. Please try again.");
+      }
+    }
+  </script>
+</body>
+<style>
+    /* Import Google font - Poppins */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+body{
+  font-family: 'Poppins', 'Cairo', sans-serif;
+  min-height: 100vh;
+  width: 100%;
+  background: #66b4db;
+}
+.container{
+  position: absolute;
+  font-family: 'Poppins', 'Cairo', sans-serif;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  max-width: 430px;
+  width: 100%;
+  background: #fff;
+  border-radius: 7px;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+}
+#check:checked ~ .login{
+  display: none;
+}
+#check{
+  display: none;
+}
+.container .form{
+  padding: 2rem;
+}
+.form header{
+  font-size: 2rem;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+ .form input{
+   height: 60px;
+   width: 100%;
+   padding: 0 15px;
+   font-size: 17px;
+   margin-bottom: 1.3rem;
+   border: 1px solid #ddd;
+   border-radius: 6px;
+   outline: none;
+ }
+ .form input:focus{
+   box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+ }
+.form a{
+  font-size: 16px;
+  color: #66b4db;
+  text-decoration: none;
+}
+.form a:hover{
+  text-decoration: underline;
+  color: #66b4db;
+}
+.form input.button{
+  color: #fff;
+  background: #66b4db;
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  margin-top: 1.7rem;
+  cursor: pointer;
+  transition: 0.4s;
+}
+.form input.button:hover{
+  background: #1d5c7c;
+}
+.signup{
+  font-size: 17px;
+  text-align: center;
+}
+.signup label{
+  color: #66b4db;
+  cursor: pointer;
+}
+.signup label:hover{
+  text-decoration: underline;
+  color: #1d5c7c;
+}
+.container{
+  display: flex;
+  flex-wrap: wrap;
+}
+.email, .password, .button{
+  flex: 1 0 5rem;
+} 
+/*
+.container{
+  display: grid;
+  grid-template-rows: 80px auto lfr auto 50px;
+  grid-template-columns: 100vh;
+  grid-template-areas: 
+  "header  header  header"
+  "left-aside  banner   left-aside "
+  "left-aside  main      left-aside "
+  "left-aside  low-content  left-aside  "
+  "footer  footer    footer";
+  grid-gap:10px;  padding: 10px;
+  font-weight: 600; font-size: 20px;
+}
+@media (max-width: 678px){
+  .container{
+    grid-template-rows: 50px 50px 50px  lfr 50px 50px 50px ;
+  grid-template-columns: lfr;
+  grid-template-areas: 
+  "header "
+  " banner "
+  "main"
+  "low-content "
+  "footer";
+  }
+
+}
+  */
+</style>
+</html>

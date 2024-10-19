@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control panel </title>
+    <!-- إضافة مكتبات Firebase -->
+    <script type="module" src="firebase-script.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--خط-->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Poppins:wght@400;600&display=swap"
+        rel="stylesheet">
+
+    <!--ايقونات-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+</head>
+
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getDatabase, ref, set, get, push, onValue, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+    // Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyAgbRxofhjd_788QdE7BUNxR_sO58WpzfY",
+        authDomain: "julas-camp.firebaseapp.com",
+        databaseURL: "https://julas-camp-default-rtdb.firebaseio.com",
+        projectId: "julas-camp",
+        storageBucket: "julas-camp.appspot.com",
+        messagingSenderId: "398458036302",
+        appId: "1:398458036302:web:96c36bba22751a8be2a31f",
+        measurementId: "G-EQ9WY4498D"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    // Handle user clicking on a specific time period
+    window.selectPeriod = function (event, period) {
+        document.getElementById('time').value = period;
+        var periods = document.getElementsByClassName('period');
+        for (var i = 0; i < periods.length; i++) {
+            periods[i].style.backgroundColor = '#333'; // Change background color to #333
+        }
+        event.target.style.backgroundColor = '#555'; // Highlight the selected item
+        updatePrices(); // Update the prices based on the selected period and date
+    }
+
+    // Load bookings on page load
+    window.onload = function () {
+        renderBook(); // Display bookings when the page loads
+
+        document.querySelector('.closeBtn').addEventListener('click', () => {
+            document.getElementById('popupForm').style.display = 'none';
+        });
+
+        document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+
+        document.getElementById('Date').addEventListener('change', updatePrices);
+
+        document.getElementById('bookingForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            handleSubmit();
+        });
+    };
+
+    // Function to handle data saving
+    async function handleSubmit() {
+        const name = document.getElementById('name').value.trim();
+        const phone = document.getElementById('Phone').value.trim();
+        const dateInput = document.getElementById('Date').value.trim();
+        const period = document.getElementById('time').value.trim();
+
+        // Check if all fields are filled
+        if (!name || !phone || !dateInput || !period) {
+            alert('Please fill in all fields before adding the booking.');
+            return;
+        }
+
+        // Check if the selected date is today or in the past
+        const selectedDate = new Date(dateInput);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set time to midnight for comparison
+
+        if (selectedDate < today) {
+            alert('You cannot book a date in the past.');
+            return;
+        } else if (selectedDate.toDateString() === today.toDateString()) {
+            alert('You cannot book for the same day. Please choose another date.');
+            return;
+        }
+
+        // Check if the selected period is already booked
+        const isPeriodBooked = await checkPeriodAvailability(selectedDate, period);
+        if (isPeriodBooked) {
+            alert('This time period is already booked. Please choose another period.');
+            return;
+        }
+
+        const bookId = document.getElementById('bookId').value;
+        const bookData = {
+            Name: name,
+            Phone: phone,
+            Date: dateInput,
+            Period: period
+        };
+
+        if (bookId) {
+            // Edit booking
+            addOrUpdateBook(bookId, bookData);
+        } else {
+            // Add new booking
+            const newBookId = push(ref(database, 'book')).key;
+            addOrUpdateBook(newBookId, bookData);
+        }
+
+        document.getElementById('popupForm').style.display = 'none'; // Close the form
+        clearForm(); // Clear the form after submission
+    }
+
+    // Function to check if the selected period is already booked
+    async function checkPeriodAvailability(selectedDate, selectedPeriod) {
+        const bookingsRef = ref(database, 'book');
+        const snapshot = await get(bookingsRef);
+        const bookings = snapshot.val();
+
+        if (bookings) {
+            const formattedDate = selectedDate.toISOString().split('T')[0]; // Format date to YYYY-MM-DD
+            for (const key in bookings) {
+                const booking = bookings[key];
+                if (booking.Date === formattedDate && booking.Period === selectedPeriod) {
+                    return true; // Period is already booked
+                }
+            }
+        }
+        return false; // Period is available
+    }
+
+    // Function to add or update a booking
+    function addOrUpdateBook(bookId, bookData) {
+        set(ref(database, 'book/' + bookId), bookData)
+            .then(() => {
+                alert('Booking added/updated successfully!');
+                renderBook();
+            })
+            .catch((error) => {
+                console.error("Error adding/updating booking: ", error);
+            });
+    }
+
+    // Function to delete a booking
+    function deleteBook(bookId) {
+        remove(ref(database, 'book/' + bookId))
+            .then(() => {
+                alert('Booking deleted successfully!');
+                renderBook();
+            })
+            .catch((error) => {
+                console.error("Error deleting booking: ", error);
+            });
+    }
+
+    // Function to render bookings
+    function renderBook() {
+        const bookTable = document.querySelector('#bookTable tbody');
+        const bookRef = ref(database, 'book');
+
+        onValue(bookRef, (snapshot) => {
+            const books = snapshot.val();
+            bookTable.innerHTML = ''; // Clear the table
+
+            if (books) {
+                Object.keys(books).forEach((key) => {
+                    const book = books[key];
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                    <td>${book.Name}</td>
+                    <td>${book.Phone}</td>
+                    <td>${book.Date}</td>
+                    <td>${book.Period}</td>
+                    <td>
+                     <div class="icon-container">
+                        <i class="fas fa-edit editBtn icon-btn" data-book-id="${key}"></i>
+                        <i class="fas fa-trash deleteBtn icon-btn" data-book-id="${key}"></i>
+                      </div>
+                    </td>
+
+                    `;
+                    bookTable.appendChild(row);
+
+                    // Add event listener for the edit button
+                    row.querySelector('.editBtn').addEventListener('click', () => {
+                        populateFormForEdit(key, book);
+                    });
+
+                    // Add event listener for the delete button
+                    row.querySelector('.deleteBtn').addEventListener('click', () => {
+                        if (confirm('Are you sure you want to delete this booking?')) {
+                            deleteBook(key);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    // Function to fill the form with booking details for editing
+    function populateFormForEdit(bookId, book) {
+        document.getElementById('bookId').value = bookId;
+        document.getElementById('name').value = book.Name;
+        document.getElementById('Phone').value = book.Phone;
+        document.getElementById('Date').value = book.Date;
+        document.getElementById('time').value = book.Period;
+        document.getElementById('popupForm').style.display = 'block'; // Show the form
+    }
+
+    // Function to reset period selection
+    function resetPeriodSelection() {
+        document.getElementById('time').value = '';
+        var periods = document.getElementsByClassName('period');
+        for (var i = 0; i < periods.length; i++) {
+            periods[i].style.backgroundColor = '#333'; // Reset background color
+        }
+    }
+
+    // Update prices based on date
+    // Update prices based on date
+    function updatePrices() {
+        const dateInput = document.getElementById('Date').value;
+        const selectedDate = new Date(dateInput);
+        const dayOfWeek = selectedDate.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+        const month = selectedDate.getMonth(); // 0: January, 9: October, 10: November (months are 0-based)
+
+        // Default prices for October
+        let period1Price = 30; // 8:00 - 2:30
+        let period2Price = 45; // 4:30 - 12:00
+        let period3Price = 30; // 12:30 - 7:30
+
+        // Prices for October
+        if (month === 9) { // October (month === 9)
+            if (dayOfWeek === 4 || dayOfWeek === 5 || dayOfWeek === 6) { // Thursday (4), Friday (5), Saturday (6)
+                period1Price = 35; // Weekend price for period 1 in October
+                period2Price = 55; // Weekend price for period 2 in October
+                period3Price = 35; // Weekend price for period 3 in October
+            } else { // Sunday to Wednesday
+                period1Price = 30;
+                period2Price = 45;
+                period3Price = 30;
+            }
+        }
+
+        // Prices for November
+        else if (month === 10) { // November (month === 10)
+            if (dayOfWeek === 4 || dayOfWeek === 5 || dayOfWeek === 6) { // Thursday (4), Friday (5), Saturday (6)
+                period1Price = 35; // Weekend price for period 1 in November
+                period2Price = 65; // Weekend price for period 2 in November
+                period3Price = 40; // Weekend price for period 3 in November
+            } else { // Sunday to Wednesday
+                period1Price = 30;
+                period2Price = 55;
+                period3Price = 35;
+            }
+        }
+
+        // Update the prices on the UI
+        document.getElementById('period1Price').textContent = period1Price + ' OMR';
+        document.getElementById('period2Price').textContent = period2Price + ' OMR';
+        document.getElementById('period3Price').textContent = period3Price + ' OMR';
+    }
+
+
+
+    // Function to clear the form
+    function clearForm() {
+        document.getElementById('name').value = '';
+        document.getElementById('Phone').value = '';
+        document.getElementById('Date').value = '';
+        resetPeriodSelection();
+        document.getElementById('bookId').value = ''; // Clear the book ID
+    }
+</script>
+
+
+
+
+<body>
+    <div class="container">
+
+
+        <section class="title-2">
+            <h2>Manage Bookings</h2>
+            <table class="table" id="bookTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Date</th>
+                        <th>Period</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <div id="popupForm" class="popup">
+            <div class="form-content">
+                <span class="closeBtn">&times;</span>
+                <h2 class="PopTitle" id="popupTitle">Edit Booking</h2>
+                <form class="popupstyle" id="adminForm">
+                    <input type="hidden" id="bookId">
+                    <label for="name" id="name-label">Name</label>
+                    <input type="text" id="name" required>
+                    <label for="Phone" id="phone-label">Phone</label>
+                    <input type="text" id="Phone" required>
+                    <label for="Date" id="date-label">Date</label>
+                    <input type="date" id="Date" required>
+                    <label for="time" id="period-label">Period</label>
+
+
+                    <div id="time" class="periods" required>
+                        <div class="period" id="Morning" onclick="selectPeriod(event,'8:00 AM - 2:30 PM | 30 OMR')">
+                            Morning <br>
+                            8:00 AM - 2:30 PM<br>
+                            <span id="period1Price">30 OMR</span>
+
+                        </div>
+                        <div class="period" id="Evening" onclick="selectPeriod(event,'4:30 PM - 12:00 AM | 45 OMR')">
+                            Evening <br>
+                            4:30 PM - 12:00 AM<br>
+                            <span id="period2Price">45 OMR</span>
+
+                        </div>
+                        <div class="period" id="fullNight" onclick="selectPeriod(event,'12:30 PM - 7:30 AM | 30 OMR')">
+                            overnight <br>
+                            12:30 PM - 7:30 AM<br>
+                            <span id="period3Price">30 OMR</span>
+
+                        </div>
+                    </div>
+
+                    <button class=" butSub" type="submit" id="submitBtn">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+<style>
+    :root {
+        --main-bg-color: #3f3a3a;
+        --header-bg-color: #615c5c;
+        --primary-button-color: #5483B3;
+        --button-hover-color: #417a9b;
+        --text-color: #ffffff;
+        --placeholder-color: #ddddddc3;
+        --input-bg-color: rgba(255, 255, 255, 0.2);
+        --border-color: #555;
+    }
+
+    body {
+        font-family: 'Poppins', 'Cairo', sans-serif;
+        direction: rtl;
+        color: var(--text-color);
+        background-color: var(--main-bg-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 100vw;
+        height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
+        /* لإخفاء أي عناصر زائدة */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 10px;
+    }
+
+    header {
+        background-color: var(--header-bg-color);
+        color: var(--text-color);
+        padding: 1rem 0;
+        text-align: center;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 2rem;
+        color: #ffffffea;
+    }
+
+
+    section {
+        margin-top: 2rem;
+        text-align: center;
+        font-size: 1rem;
+    }
+
+    button {
+        background-color: var(--primary-button-color);
+        color: var(--text-color);
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+        font-size: 0.75rem;
+    }
+
+    button:hover {
+        background-color: var(--button-hover-color);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.75rem;
+        /* تقليل حجم الخط */
+        text-align: center;
+        text-align: left;
+        /* محاذاة النص داخل مربع النص لليسار */
+
+    }
+
+    table,
+    th,
+    td {
+        border: 1px solid var(--header-bg-color);
+        padding: 5px;
+        /* تقليل حجم الحواف */
+    }
+
+    th,
+    td {
+        border: 1px solid var(--header-bg-color);
+        padding: 0.5rem;
+    }
+
+    th {
+        background-color: var(--header-bg-color);
+    }
+
+    /* Popup styles */
+    .popup {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+
+    .popup-content {
+        background-color: #2c2c2c;
+        margin: 10% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 400px;
+        max-height: 80%;
+        overflow-y: auto;
+        border-radius: 10px;
+        border: 1px solid #444;
+        box-sizing: border-box;
+        position: relative;
+
+    }
+
+    .PopTitle {
+        font-size: 1.5rem;
+        color: #ffffff;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    input,
+    select,
+    textarea {
+        width: calc(100% - 32px);
+        padding: 0.875rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid #888;
+        border-radius: 0.5rem;
+        background-color: rgba(255, 255, 255, 0.1);
+        color: #f5f5f5;
+        font-size: 1rem;
+        text-align: left;
+        /* لجعل النص محاذاة لليسار */
+
+    }
+
+    input:focus,
+    textarea:focus {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-color: #aaa;
+        color: #ffffff;
+        outline: none;
+    }
+
+    input::placeholder {
+        color: #ccc;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: #ffffffcc;
+        direction: rtl;
+        text-align: left;
+        /* لجعل النص محاذاة لليسار */
+
+
+    }
+
+    .periods {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        
+
+    }
+
+    .period {
+        padding: 0.75rem;
+        background-color: #3a3a3a;
+        border-radius: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.7rem;
+        border: 1px solid #666;
+        line-height: 1.5;
+    }
+
+    .period:hover {
+        background-color: #4a4a4a;
+        cursor: pointer;
+    }
+
+    .period .details {
+        display: flex;
+        align-items: center;
+    }
+
+    .period .time,
+    .period .price {
+        font-size: 0.8rem;
+        color: #e0e0e0;
+        margin-left: 1.25rem;
+    }
+
+    .period .price {
+        color: #f66262;
+        font-weight: 700;
+    }
+
+    .titleSelectTime {
+        font-size: 1.2rem;
+        text-align: center;
+        color: #ffeb3b;
+        margin-bottom: 1rem;
+    }
+
+    #popupForm {
+        display: none;
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+    }
+
+    .form-content {
+        background-color: var(--main-bg-color);
+        padding: 20px;
+        border-radius: 5px;
+        width: 80%;
+        max-width: 400px;
+        color: var(--text-color);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        text-align: left; /* لجعل النص محاذاة لليسار */
+
+    }
+
+    .closeBtn {
+        background-color: transparent;
+        color: #f7e7e7;
+        font-size: 1.5rem;
+        font-weight: bold;
+        cursor: pointer;
+        position: absolute;
+        top: 0.625rem;
+        right: 0.625rem;
+        transition: color 0.3s ease;
+    }
+
+    .closeBtn:hover {
+        color: #ff1a1a;
+    }
+
+    .butSub {
+        background-color: var(--primary-button-color);
+        color: var(--text-color);
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: 0.3125rem;
+        cursor: pointer;
+        margin-top: 1.25rem;
+        width: 100%;
+        max-width: 200px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .icon-btn {
+        cursor: pointer;
+        color: #ffffff;
+        /* لون افتراضي للأيقونات */
+        transition: color 0.3s ease, transform 0.3s ease;
+        /* تأثير الانتقال للون والتكبير */
+        font-size: 1.2rem;
+        /* تكبير حجم الأيقونة */
+        margin-bottom: 10px;
+        /* المسافة بين الأيقونات */
+    }
+
+    /* تغيير اللون عند التمرير بالفأرة */
+    .icon-btn:hover {
+        color: #f39c12;
+        /* لون عند التمرير بالفأرة */
+        transform: scale(1.2);
+        /* تكبير الأيقونة عند التمرير */
+    }
+
+    /* تأثير مختلف عند التمرير على أيقونة الحذف */
+    .icon-btn.deleteBtn:hover {
+        color: #e74c3c;
+        /* لون أحمر عند التمرير */
+    }
+
+    /* تحسين ترتيب الأيقونات رأسياً */
+    .icon-container {
+        display: flex;
+        flex-direction: column;
+        /* ترتيب الأيقونات رأسياً */
+        align-items: center;
+        /* توسيط الأيقونات */
+    }
+
+
+
+    /* تحسين التخطيط لشاشات أصغر */
+    @media (max-width: 768px) {
+        table {
+            font-size: 0.65rem;
+            /* تقليل حجم الخط أكثر على الأجهزة الصغيرة */
+        }
+
+        th,
+        td {
+            padding: 4px;
+        }
+
+        button {
+            padding: 6px 10px;
+            font-size: 0.65rem;
+        }
+    }
+
+    /* تحسين التخطيط لشاشات الهواتف الصغيرة */
+    @media (max-width: 480px) {
+        .container {
+            padding: 5px;
+            /* تقليل الحواف حول الصفحة */
+        }
+
+        table {
+            font-size: 0.6rem;
+            /* تقليل حجم الخط بشكل أكبر */
+        }
+
+        th,
+        td {
+            padding: 3px;
+            /* تقليل حجم الحواف أكثر */
+        }
+
+        button {
+            padding: 5px 8px;
+            font-size: 0.6rem;
+        }
+    }
+</style>
+
+
+
+
+
+</html>
